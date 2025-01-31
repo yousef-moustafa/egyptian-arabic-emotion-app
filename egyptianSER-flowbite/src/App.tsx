@@ -1,20 +1,32 @@
-import { Button } from 'flowbite-react';
-import { FileuploadComponent } from './components/FileuploadComponent';
+import { NavbarComponent } from "./components/NavbarComponent";
+import { HeroComponent } from "./components/HeroComponent";
+import { FeaturesComponent } from "./components/FeaturesComponent";
+import { DemoComponent } from "./components/DemoComponent";
+import { UseCasesComponent } from "./components/UseCasesComponent";
+
 import './App.css';
+import { FileuploadComponent } from "./components/FileuploadComponent";
 
 function App() {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center">
-      <h1 className="text-2xl font-bold mb-4 text-white-900">
-        My Speech Emotion Recognition Application
-      </h1>
-      <div className="w-full max-w-lg mb-6">
-        <FileuploadComponent />
-      </div>
+    <div className="min-h-screen flex flex-col">
+      {/* ✅ Navbar at the top (Fixed position if needed) */}
+      <NavbarComponent />
 
-      <Button className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded dark:bg-blue-600 dark:hover:bg-blue-800">
-        Predict Emotion
-      </Button>
+      {/* ✅ Hero Section */}
+      <HeroComponent />
+
+      {/* ✅ Features Section (How It Works) */}
+      <FeaturesComponent />
+
+      {/* ✅ Demo Section (Try It Out) */}
+      <DemoComponent />
+
+      <FileuploadComponent />
+
+      {/* ✅ Use Cases Section (Where It’s Used) */}
+      <UseCasesComponent />
+
     </div>
   );
 }
