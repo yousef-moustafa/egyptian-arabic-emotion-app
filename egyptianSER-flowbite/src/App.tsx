@@ -21,6 +21,10 @@ function App() {
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [displayText, setDisplayText] = useState('Tap to start');
   const [seconds, setSeconds] = useState(0);
+  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const [transcribedText, setTranscribedText] = useState('');
+
   const MAX_RECORDING_TIME = 10; // Maximum recording time in seconds
 
   // Timer effect
@@ -92,45 +96,60 @@ function App() {
     return () => clearTimeout(timer);
   }, [currentState]);
 
-  const handleStateChange = (state: 'idle' | 'listening' | 'result') => {
-    if (currentState === 'listening' && state === 'listening') {
-      setCurrentState('result');
+  const handleStateChange = async (state: 'idle' | 'listening' | 'result') => {
+    if (state === 'listening') {
+      setCurrentState('listening');
+  
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const recorder = new MediaRecorder(stream);
+        const chunks: Blob[] = [];
+  
+        recorder.ondataavailable = (e) => chunks.push(e.data);
+        recorder.onstop = async () => {
+          stream.getTracks().forEach(track => track.stop());
+          setMediaRecorder(null);
+        
+          const blob = new Blob(chunks, { type: 'audio/wav' });
+          setAudioBlob(blob);
+          const transcript = await sendToASR(blob);
+          setTranscribedText(transcript);
+        };
+        recorder.start();
+        setMediaRecorder(recorder);
+      } catch (err) {
+        console.error("Error accessing microphone:", err);
+      }
+  
+      return;
+    }
+  
+    if (state === 'result') {
+      if (mediaRecorder) {
+        mediaRecorder.stop(); // This will trigger the onstop handler
+      }
+  
       setEmotions({
         angry: 0.15,
         happy: 0.25,
         neutral: 0.45,
-        sad: 0.15
+        sad: 0.15,
       });
       setTypingFinished(false);
       setTimeout(() => setShowResults(true), 100);
       setTimeout(() => setTypingFinished(true), 2100);
+      setCurrentState('result');
       return;
     }
-
-    if (currentState === 'result' && state === 'listening') {
+  
+    if (state === 'idle') {
       setCurrentState('idle');
       setShowResults(false);
       setTypingFinished(false);
-      setTimeout(() => setCurrentState('listening'), 100);
-      return;
-    }
-
-    setCurrentState(state);
-    if (state === 'result') {
-      setEmotions({
-        angry: 0.15,
-        happy: 0.25,
-        neutral: 0.45,
-        sad: 0.15
-      });
-      setTypingFinished(false);
-      setTimeout(() => setShowResults(true), 100);
-      setTimeout(() => setTypingFinished(true), 2100);
-    } else {
-      setShowResults(false);
-      setTypingFinished(false);
+      setTranscribedText('');
     }
   };
+  
 
   // Format seconds to MM:SS
   const formatTime = (totalSeconds: number) => {
@@ -138,6 +157,25 @@ function App() {
     const seconds = totalSeconds % 60;
     return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   };
+
+  const sendToASR = async (blob: Blob) => {
+    const formData = new FormData();
+    formData.append('file', blob, 'recording.wav');
+  
+    try {
+      const res = await fetch('http://127.0.0.1:8000/transcribe', {
+        method: 'POST',
+        body: formData,
+      });
+  
+      const data = await res.json();
+      return data.cleaned || data.transcript;
+    } catch (err) {
+      console.error('Error during transcription:', err);
+      return '';
+    }
+  };
+  
 
   // Get remaining time text
   const getRemainingTime = () => {
@@ -229,13 +267,13 @@ function App() {
                   Transcribed Text
                 </h3>
                 <div className="typing-container">
-                  <p className={`
-                    text-xl text-slate-800 font-arabic leading-relaxed typing-text
-                    ${showResults ? 'animation-play-state-running' : 'animation-play-state-paused'}
-                    ${typingFinished ? 'finished' : ''}
-                  `}>
-                    انا مبسوط اوي النهاردة عشان نجحت في الامتحان
-                  </p>
+                <p className={`
+                  text-xl text-slate-800 font-arabic leading-relaxed typing-text
+                  ${showResults ? 'animation-play-state-running' : 'animation-play-state-paused'}
+                  ${typingFinished ? 'finished' : ''}
+                `} dir="rtl">
+                  {transcribedText || '...'}
+                </p>
                 </div>
               </div>
 
