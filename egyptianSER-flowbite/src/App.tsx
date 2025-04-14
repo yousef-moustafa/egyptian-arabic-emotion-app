@@ -26,6 +26,7 @@ function App() {
   const [transcribedText, setTranscribedText] = useState('');
 
   const MAX_RECORDING_TIME = 10; // Maximum recording time in seconds
+  const requestIdRef = React.useRef(0);
 
   // Timer effect
   useEffect(() => {
@@ -159,22 +160,42 @@ function App() {
   };
 
   const sendToASR = async (blob: Blob) => {
+    const thisRequestId = ++requestIdRef.current;
+  
     const formData = new FormData();
     formData.append('file', blob, 'recording.wav');
   
     try {
+      console.log("🎙️ Sending audio blob size:", blob.size);
       const res = await fetch('http://127.0.0.1:8000/transcribe', {
         method: 'POST',
         body: formData,
       });
   
       const data = await res.json();
+  
+      if (thisRequestId !== requestIdRef.current) {
+        console.warn("⚠️ Stale response ignored.");
+        return '';
+      }
+  
+      // Only the latest response gets to update state
+      setTranscribedText(data.cleaned || data.transcript);
+      setEmotions({
+        angry: data.emotion?.scores?.angry || 0,
+        happy: data.emotion?.scores?.happy || 0,
+        neutral: data.emotion?.scores?.neutral || 0,
+        sad: data.emotion?.scores?.sad || 0
+      });
+  
       return data.cleaned || data.transcript;
+  
     } catch (err) {
-      console.error('Error during transcription:', err);
+      console.error('[ASR] fetch error:', err);
       return '';
     }
   };
+  
   
 
   // Get remaining time text
